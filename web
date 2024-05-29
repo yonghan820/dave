@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>漢華教育</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            text-align: center;
+            padding: 50px 0;
+            background-color: #0066cc;
+            color: white;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 2.5em;
+        }
+        section {
+            margin: 20px 0;
+        }
+        h2 {
+            color: #0066cc;
+            border-bottom: 2px solid #0066cc;
+            padding-bottom: 10px;
+        }
+        p {
+            line-height: 1.6;
+        }
+        .contact-info {
+            background-color: #e0f7ff;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        footer {
+            text-align: center;
+            padding: 10px 0;
+            background-color: #0066cc;
+            color: white;
+            position: fixed;
+            width: 100%;
+            bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>漢華教育</h1>
+    </header>
+    <div class="container">
+        <section>
+            <h2>關於我們</h2>
+            <p>漢華教育由擁有國立中山大學物理學系量子科技組全英語班學歷的專業老師創立，專門提供國中數學、自然科學及英文教育。我們致力於提供高質量的教育，使學生在輕鬆愉快的環境中取得優異成績。</p>
+        </section>
+        <section>
+            <h2>服務介紹</h2>
+            <p>我們目前已經收了許多學生，他們的成績一直在進步，上課過程也非常舒適。我們的收費為每小時400台幣，提供高效且經濟的教學服務。</p>
+        </section>
+        <section>
+            <h2>聯絡我們</h2>
+            <div class="contact-info">
+                <p>如果您有任何問題或需要更多資訊，請通過以下方式聯絡我們：</p>
+                <p>Email: <a href="mailto:yonghan820@gmail.com">yonghan820@gmail.com</a></p>
+            </div>
+        </section>
+    </div>
+    <footer>
+        <p>© 2024 漢華教育. 保留所有權利.</p>
+    </footer>
+</body>
+</html>
