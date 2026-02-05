@@ -1,81 +1,123 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dave's Finance Dash</title>
+    <title>Dave's Live Finance Dashboard</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eceff1; padding: 20px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eceff1; padding: 20px; color: #263238; }
         .container { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        h1 { color: #263238; text-align: center; font-size: 24px; }
+        h1 { text-align: center; font-size: 24px; margin-bottom: 5px; }
+        .sync-status { text-align: center; font-size: 12px; color: #4caf50; margin-bottom: 20px; }
         .section { margin-bottom: 25px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
         label { display: block; margin: 10px 0 5px; font-weight: bold; color: #546e7a; }
         input { width: 100%; padding: 10px; border: 1px solid #cfd8dc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        .result-box { background: #e8f5e9; padding: 15px; border-radius: 12px; margin-top: 20px; }
-        .total-money { font-size: 28px; color: #2e7d32; font-weight: bold; text-align: center; }
-        .warning { color: #d32f2f; font-size: 14px; margin-top: 10px; text-align: center; }
-        .btn { background: #2196f3; color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 18px; margin-top: 10px; }
-        .btn:hover { background: #1976d2; }
+        .asset-list { font-size: 14px; background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        .result-box { background: #e8f5e9; padding: 15px; border-radius: 12px; margin-top: 20px; border: 2px solid #2e7d32; }
+        .total-money { font-size: 32px; color: #1b5e20; font-weight: bold; text-align: center; }
+        .status-msg { text-align: center; font-weight: bold; margin-top: 10px; color: #d32f2f; }
+        .footer-info { font-size: 12px; color: #78909c; margin-top: 20px; line-height: 1.6; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>📊 Dave's 預算動態計算器</h1>
+    <h1>📊 Dave's 理財儀表板</h1>
+    <div id="syncTime" class="sync-status">數據同步中...</div>
+
+    <div class="section">
+        <label>📋 目前抓取到的資產項目</label>
+        <div id="assetDisplay" class="asset-list">讀取資料庫中...</div>
+    </div>
 
     <div class="section">
         <label>📱 預計換手機預算 (元)</label>
-        <input type="number" id="phonePrice" value="25000" oninput="calculate()">
+        <input type="number" id="phonePrice" value="25000" oninput="processData()">
     </div>
 
     <div class="section">
         <label>🍱 平均每日伙食費 (元)</label>
-        <input type="number" id="dailyFood" value="280" oninput="calculate()">
+        <input type="number" id="dailyFood" value="280" oninput="processData()">
     </div>
 
     <div class="result-box">
-        <div>💰 到 6 月底預計剩餘流動資金</div>
+        <div style="text-align: center; font-size: 14px;">✈️ 6 月底去新加坡前的預計可用餘額</div>
         <div class="total-money" id="finalBalance">$ 0</div>
-        <div id="statusMessage" class="warning"></div>
+        <div id="statusMessage" class="status-msg"></div>
     </div>
 
-    <p style="font-size: 12px; color: #999; text-align: center; margin-top: 20px;">
-        *已自動計入：獎學金5k、補習費18k、紅包10.4k、每月結餘8.4k<br>
-        *已扣除：給爸媽10k、房租與固定支出
-    </p>
+    <div class="footer-info">
+        * 自動計算：(表格總額) + (3-6月結餘 $18,401 × 4) - (伙食費) - (手機)<br>
+        * 固定扣除：房租 $4,800、月票 $999、訂閱 $500<br>
+        * 數據來源：你的專屬 Google Sheets
+    </div>
 </div>
 
 <script>
-    function calculate() {
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRqqDj5W9MR89ruAyvHFScrr8Ft0I8x7zUxpE_xXcwIcOa0WRT34ZoR8-EHl2hvVQsqW4C-usYHkutd/pub?output=csv";
+    let googleData = [];
+
+    // 從 Google Sheets 抓取資料
+    async function fetchData() {
+        try {
+            const response = await fetch(csvUrl);
+            const data = await response.text();
+            const rows = data.split('\n').slice(1); // 跳過標題列
+            
+            googleData = rows.map(row => {
+                const cols = row.split(',');
+                return { name: cols[0], amount: parseFloat(cols[1]) || 0 };
+            });
+
+            document.getElementById('syncTime').innerText = "● 數據已從雲端同步 (" + new Date().toLocaleTimeString() + ")";
+            processData();
+        } catch (error) {
+            document.getElementById('syncTime').innerText = "❌ 同步失敗，請檢查表格發佈設定";
+            console.error("Fetch error:", error);
+        }
+    }
+
+    function processData() {
+        let totalCurrentAssets = 0;
+        let displayText = "";
+
+        // 加總表格內所有資產
+        googleData.forEach(item => {
+            if (item.name) {
+                totalCurrentAssets += item.amount;
+                displayText += `${item.name}: $${item.amount.toLocaleString()}<br>`;
+            }
+        });
+
+        document.getElementById('assetDisplay').innerHTML = displayText || "尚未設定資產項目";
+
+        // 計算邏輯
         const phone = parseFloat(document.getElementById('phonePrice').value) || 0;
         const food = parseFloat(document.getElementById('dailyFood').value) || 0;
+        
+        // 3-6月固定結餘 (已扣房租月票訂閱) 為 18401/月
+        const futureSavings = 18401 * 4; 
+        const foodTotal = food * 140; // 估計剩餘天數
+        
+        // 最終可用流動資金
+        const final = totalCurrentAssets + futureSavings - foodTotal - phone;
 
-        // 基礎結餘邏輯：
-        // 目前流動 12100 - 2月大支出淨影響 4200 + 3-6月固定結餘(未扣伙食雜費) 18400*4 
-        // + 獎學金 5000 + 補習費 18000 + 阿公紅包等 10400
-        // 簡化計算 6月底不含伙食與手機的流動資產約為：106,500 左右
-        let baseAssets = 106500; 
-        
-        // 扣除伙食費 (假設剩餘 140 天)
-        let foodTotal = food * 140;
-        
-        // 最終計算
-        let final = baseAssets - foodTotal - phone;
-        
         document.getElementById('finalBalance').innerText = "$" + Math.round(final).toLocaleString();
 
         // 警示邏輯
         let msg = document.getElementById('statusMessage');
         if (final < 20000) {
-            msg.innerText = "⚠️ 警告：餘額低於 2 萬，新加坡旅遊可能會縮衣節食喔！";
-        } else if (phone > 35000) {
-            msg.innerText = "😎 買這麼好？看來家教 A 跟 B 要多接幾堂了！";
+            msg.innerText = "⚠️ 餘額偏低，建議下修手機預算！";
         } else {
-            msg.innerText = "✅ 財務狀況健康，可以安心出國！";
+            msg.innerText = "✅ 財務穩健，新加坡之旅準備出發！";
+            msg.style.color = "#2e7d32";
         }
     }
-    // 初始執行一次
-    calculate();
+
+    // 啟動抓取
+    fetchData();
+    // 每 5 分鐘自動刷新一次
+    setInterval(fetchData, 300000);
 </script>
 
 </body>
