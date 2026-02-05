@@ -3,121 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dave's Live Finance Dashboard</title>
+    <title>Dave's Realtime Finance</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eceff1; padding: 20px; color: #263238; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        h1 { text-align: center; font-size: 24px; margin-bottom: 5px; }
-        .sync-status { text-align: center; font-size: 12px; color: #4caf50; margin-bottom: 20px; }
-        .section { margin-bottom: 25px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
-        label { display: block; margin: 10px 0 5px; font-weight: bold; color: #546e7a; }
-        input { width: 100%; padding: 10px; border: 1px solid #cfd8dc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        .asset-list { font-size: 14px; background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
-        .result-box { background: #e8f5e9; padding: 15px; border-radius: 12px; margin-top: 20px; border: 2px solid #2e7d32; }
-        .total-money { font-size: 32px; color: #1b5e20; font-weight: bold; text-align: center; }
-        .status-msg { text-align: center; font-weight: bold; margin-top: 10px; color: #d32f2f; }
-        .footer-info { font-size: 12px; color: #78909c; margin-top: 20px; line-height: 1.6; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #1a73e8; }
+        .sync-tag { text-align: center; font-size: 12px; color: #34a853; margin-bottom: 20px; }
+        .item-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 10px; }
+        .item-label { font-weight: bold; flex: 1; }
+        input[type="number"] { width: 100px; padding: 5px; border: 1px solid #ddd; border-radius: 5px; text-align: right; }
+        .save-btn { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 8px; width: 100%; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        .result-box { background: #e7f3ff; padding: 15px; border-radius: 10px; margin-top: 20px; text-align: center; }
+        .total-amount { font-size: 28px; font-weight: bold; color: #0d47a1; }
+        .footer { font-size: 11px; color: #777; margin-top: 20px; text-align: center; line-height: 1.5; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>📊 Dave's 理財儀表板</h1>
-    <div id="syncTime" class="sync-status">數據同步中...</div>
+    <h1>💰 Dave 即時理財</h1>
+    <div id="status" class="sync-tag">● 雲端同步中...</div>
 
-    <div class="section">
-        <label>📋 目前抓取到的資產項目</label>
-        <div id="assetDisplay" class="asset-list">讀取資料庫中...</div>
-    </div>
+    <div id="assetList">
+        </div>
 
-    <div class="section">
-        <label>📱 預計換手機預算 (元)</label>
-        <input type="number" id="phonePrice" value="25000" oninput="processData()">
-    </div>
-
-    <div class="section">
-        <label>🍱 平均每日伙食費 (元)</label>
-        <input type="number" id="dailyFood" value="280" oninput="processData()">
-    </div>
+    <button class="save-btn" onclick="saveData()">💾 儲存並同步到雲端</button>
 
     <div class="result-box">
-        <div style="text-align: center; font-size: 14px;">✈️ 6 月底去新加坡前的預計可用餘額</div>
-        <div class="total-money" id="finalBalance">$ 0</div>
-        <div id="statusMessage" class="status-msg"></div>
+        <div style="font-size: 14px;">✈️ 6 月底預計可用流動資金</div>
+        <div class="total-amount" id="finalBalance">$ 0</div>
     </div>
 
-    <div class="footer-info">
-        * 自動計算：(表格總額) + (3-6月結餘 $18,401 × 4) - (伙食費) - (手機)<br>
-        * 固定扣除：房租 $4,800、月票 $999、訂閱 $500<br>
-        * 數據來源：你的專屬 Google Sheets
+    <div class="footer">
+        * 自動扣除：房租 $4,800、月票 $999、訂閱 $500<br>
+        * 試算已含 3-6 月家教與生活費結餘<br>
+        * 數據即時存儲於 Firebase Database
     </div>
 </div>
 
 <script>
-    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRqqDj5W9MR89ruAyvHFScrr8Ft0I8x7zUxpE_xXcwIcOa0WRT34ZoR8-EHl2hvVQsqW4C-usYHkutd/pub?output=csv";
-    let googleData = [];
+    // 泳漢，這是你的專屬金鑰
+    const firebaseConfig = {
+        apiKey: "AIzaSyAwg3PU6EHKvdJ5x4rVHhDn2bptQHR86gg",
+        authDomain: "dave-finance.firebaseapp.com",
+        databaseURL: "https://dave-finance-default-rtdb.firebaseio.com",
+        projectId: "dave-finance",
+        storageBucket: "dave-finance.firebasestorage.app",
+        messagingSenderId: "768359501585",
+        appId: "1:768359501585:web:9759bee89077e8060b86b0"
+    };
 
-    // 從 Google Sheets 抓取資料
-    async function fetchData() {
-        try {
-            const response = await fetch(csvUrl);
-            const data = await response.text();
-            const rows = data.split('\n').slice(1); // 跳過標題列
-            
-            googleData = rows.map(row => {
-                const cols = row.split(',');
-                return { name: cols[0], amount: parseFloat(cols[1]) || 0 };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database().ref("assets");
+
+    const assetNames = ["現金網銀", "股市資產", "運彩帳戶", "阿公紅包", "補習費退還"];
+    
+    // 初始化清單
+    const listDiv = document.getElementById('assetList');
+    assetNames.forEach(name => {
+        listDiv.innerHTML += `
+            <div class="item-row">
+                <span class="item-label">${name}</span>
+                <input type="number" id="val_${name}" value="0" oninput="calculate()">
+            </div>
+        `;
+    });
+
+    // 從資料庫讀取
+    db.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            assetNames.forEach(name => {
+                if (data[name] !== undefined) {
+                    document.getElementById(`val_${name}`).value = data[name];
+                }
             });
-
-            document.getElementById('syncTime').innerText = "● 數據已從雲端同步 (" + new Date().toLocaleTimeString() + ")";
-            processData();
-        } catch (error) {
-            document.getElementById('syncTime').innerText = "❌ 同步失敗，請檢查表格發佈設定";
-            console.error("Fetch error:", error);
+            calculate();
+            document.getElementById('status').innerText = "● 數據已與雲端同步 (" + new Date().toLocaleTimeString() + ")";
         }
-    }
+    });
 
-    function processData() {
-        let totalCurrentAssets = 0;
-        let displayText = "";
-
-        // 加總表格內所有資產
-        googleData.forEach(item => {
-            if (item.name) {
-                totalCurrentAssets += item.amount;
-                displayText += `${item.name}: $${item.amount.toLocaleString()}<br>`;
-            }
+    function calculate() {
+        let currentTotal = 0;
+        assetNames.forEach(name => {
+            currentTotal += parseFloat(document.getElementById(`val_${name}`).value) || 0;
         });
 
-        document.getElementById('assetDisplay').innerHTML = displayText || "尚未設定資產項目";
-
-        // 計算邏輯
-        const phone = parseFloat(document.getElementById('phonePrice').value) || 0;
-        const food = parseFloat(document.getElementById('dailyFood').value) || 0;
-        
-        // 3-6月固定結餘 (已扣房租月票訂閱) 為 18401/月
-        const futureSavings = 18401 * 4; 
-        const foodTotal = food * 140; // 估計剩餘天數
-        
-        // 最終可用流動資金
-        const final = totalCurrentAssets + futureSavings - foodTotal - phone;
+        // 財務邏輯：每月結餘 18401 * 4個月 - 伙食費 (假設 280*140天)
+        const futureSavings = 18401 * 4;
+        const foodTotal = 280 * 140;
+        const final = currentTotal + futureSavings - foodTotal;
 
         document.getElementById('finalBalance').innerText = "$" + Math.round(final).toLocaleString();
-
-        // 警示邏輯
-        let msg = document.getElementById('statusMessage');
-        if (final < 20000) {
-            msg.innerText = "⚠️ 餘額偏低，建議下修手機預算！";
-        } else {
-            msg.innerText = "✅ 財務穩健，新加坡之旅準備出發！";
-            msg.style.color = "#2e7d32";
-        }
     }
 
-    // 啟動抓取
-    fetchData();
-    // 每 5 分鐘自動刷新一次
-    setInterval(fetchData, 300000);
+    function saveData() {
+        const dataToSave = {};
+        assetNames.forEach(name => {
+            dataToSave[name] = parseFloat(document.getElementById(`val_${name}`).value) || 0;
+        });
+        db.set(dataToSave).then(() => {
+            alert("✅ 雲端存檔成功！你的 iPad 和手機看到的一樣了。");
+        });
+    }
 </script>
 
 </body>
